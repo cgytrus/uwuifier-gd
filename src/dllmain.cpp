@@ -8,13 +8,16 @@ bool enabled = true;
 bool enabledInLevels = false;
 // multiplied by 10000
 unsigned int periodToExclamationChance = 2000;
-int waveChance = 625;
 int stutterChance = 1000;
+int presuffixChance = 1000;
 int suffixChance = 2000;
 
+static std::unordered_map<char, char> const SINGLE_REPLACE = {
+    { 'l', 'w' },
+    { 'r', 'w' }
+};
+
 static std::unordered_map<std::string, std::string> const REPLACE = {
-    { "l", "w" },
-    { "r", "w" },
     { " you ", " uwu " },
     { " no ", " nu " },
     { " na", " nya" },
@@ -23,7 +26,6 @@ static std::unordered_map<std::string, std::string> const REPLACE = {
     { " no", " nyo" },
     { " nu", " nyu" },
     { "te", "twe" },
-    { "od", "owd" },
     { "da", "dwa" },
     { "ke", "kwe" },
     { "qe", "qwe" },
@@ -32,15 +34,18 @@ static std::unordered_map<std::string, std::string> const REPLACE = {
     { "na", "nwa" },
     { "si", "swi" },
     { "so", "swo" },
-    { "by", "bwy" },
     { "mi", "mwi" },
     { "co", "cwo" },
     { "mo", "mwo" },
-    { "ba", "bwa" }
+    { "ba", "bwa" },
+    { "pow", "paw" }
 };
 
-static std::vector<std::string> const SUFFIXES =
-{
+static std::vector<std::string> const PRESUFFIXES = {
+    "~"
+};
+
+static std::vector<std::string> const SUFFIXES = {
     " :D",
     " xD",
     " :P",
@@ -99,7 +104,7 @@ const char* uwuify(const char* originalString) {
 
     newString.clear();
 
-    // copy and replace . with ! and add ~ sometimes
+    // copy and replace . with !
     newString.append(" ");
     for(size_t i = 0; i < origLength; i++) {
         char prevChar = i == 0 ? ' ' : tolower(originalString[i - 1]);
@@ -108,22 +113,29 @@ const char* uwuify(const char* originalString) {
 
         if(currChar == '.' && nextChar == ' ' && getChance(periodToExclamationChance)) currChar = '!';
         newString += currChar;
-
-        if(nextChar == ' ' && (isalpha(currChar) || currChar == '!') && getChance(waveChance)) {
-            newString += '~';
-        }
     }
     newString.append(" ");
 
     // replacements
+    for(size_t i = 1; i < newString.size() - 1; i++) {
+        char prevChar = newString[i - 1];
+        char currChar = newString[i];
+        char nextChar = newString[i + 1];
+
+        if(!isalpha(prevChar) && !isalpha(nextChar) || !SINGLE_REPLACE.contains(currChar)) continue;
+        newString[i] = SINGLE_REPLACE.at(currChar);
+    }
     for(auto elem : REPLACE) {
         replaceAll(newString, elem.first, elem.second);
     }
 
     // stutter and suffixes
     for(size_t i = 1; i < newString.size(); i++) {
+        bool end = i == newString.size() - 1;
+
         char prevChar = newString[i - 1];
         char currChar = newString[i];
+        char nextChar = end ? ' ' : newString[i + 1];
 
         bool stutter = prevChar == ' ' && isalpha(currChar) && getChance(stutterChance);
         if(stutter) {
@@ -132,11 +144,17 @@ const char* uwuify(const char* originalString) {
         }
 
         int suffixLength = 0;
-        if(currChar == ' ' && (prevChar == '.' || prevChar == '!' || prevChar == ',' || (i == newString.size() - 1 && isalnum(prevChar)))
-           && getChance(suffixChance)) {
-            auto suffix = SUFFIXES[std::rand() % SUFFIXES.size()];
-            newString.insert(i, suffix);
-            suffixLength = suffix.size();
+        if(currChar == ' ' && (prevChar == '.' || prevChar == '!' || prevChar == ',' || nextChar == '-' || end)) {
+            if(getChance(suffixChance) && (!end || isalnum(prevChar))) {
+                auto suffix = SUFFIXES[std::rand() % SUFFIXES.size()];
+                newString.insert(i, suffix);
+                suffixLength += suffix.size();
+            }
+            if(getChance(presuffixChance)) {
+                auto presuffix = PRESUFFIXES[std::rand() % PRESUFFIXES.size()];
+                newString.insert(prevChar != ',' || end ? i : i - 1, presuffix);
+                suffixLength += presuffix.size();
+            }
         }
 
         if(stutter) i += 2;
@@ -152,7 +170,7 @@ void (__thiscall* CCLabelBMFont_setString)(CCLabelBMFont* self, const char *newS
 void __fastcall CCLabelBMFont_setString_H(CCLabelBMFont* self, void*, const char *newString, bool needUpdateLabel) {
     auto parent = self->getParent();
     // same as comment on the hook below
-    if(!enabled || !enabledInLevels && (ignoreUwuifying || parent != nullptr && parent->getObjType() == 13)) {
+    if(!enabled || !enabledInLevels && (ignoreUwuifying || parent != nullptr && /*parent->getObjType() == 13*/ typeid(*parent) == typeid(gd::GameObject))) {
         CCLabelBMFont_setString(self, newString, needUpdateLabel);
         return;
     }
@@ -171,6 +189,22 @@ void __fastcall GameObject_updateTextObject_H(gd::GameObject* self, void*, char 
     ignoreUwuifying = false;
 }
 
+gd::GameObject* (__thiscall* LevelEditorLayer_addObjectFromString)(gd::LevelEditorLayer* self, std::string str);
+gd::GameObject* __fastcall LevelEditorLayer_addObjectFromString_H(gd::LevelEditorLayer* self, void*, std::string str) {
+    ignoreUwuifying = true;
+    auto ret = LevelEditorLayer_addObjectFromString(self, str);
+    ignoreUwuifying = false;
+    return ret;
+}
+
+gd::GameObject* (__thiscall* LevelEditorLayer_createObject)(gd::LevelEditorLayer* self, int id, cocos2d::CCPoint position, bool undo);
+gd::GameObject* __fastcall LevelEditorLayer_createObject_H(gd::LevelEditorLayer* self, void*, int id, cocos2d::CCPoint position, bool undo) {
+    ignoreUwuifying = true;
+    auto ret = LevelEditorLayer_createObject(self, id, position, undo);
+    ignoreUwuifying = false;
+    return ret;
+}
+
 void __stdcall extEnabledCallback(void* cb) { enabled = true; }
 void __stdcall extDisabledCallback(void* cb) { enabled = false; }
 
@@ -179,8 +213,8 @@ void __stdcall extDisabledInLevelsCallback(void* cb) { enabledInLevels = false; 
 
 // percents
 void __stdcall extChangedPeriodToExclamationChance(void* tb) { periodToExclamationChance = cstringToChance(HackproGetTextBoxText(tb)); }
-void __stdcall extChangedWaveChance(void* tb) { waveChance = cstringToChance(HackproGetTextBoxText(tb)); }
 void __stdcall extChangedStutterChance(void* tb) { stutterChance = cstringToChance(HackproGetTextBoxText(tb)); }
+void __stdcall extChangedPresuffixChance(void* tb) { presuffixChance = cstringToChance(HackproGetTextBoxText(tb)); }
 void __stdcall extChangedSuffixChance(void* tb) { suffixChance = cstringToChance(HackproGetTextBoxText(tb)); }
 
 DWORD WINAPI mainThread(void* hModule) {
@@ -201,6 +235,18 @@ DWORD WINAPI mainThread(void* hModule) {
         reinterpret_cast<void**>(&GameObject_updateTextObject)
     );
 
+    MH_CreateHook(
+        reinterpret_cast<void*>(base + 0x160c80),
+        LevelEditorLayer_addObjectFromString_H,
+        reinterpret_cast<void**>(&LevelEditorLayer_addObjectFromString)
+    );
+
+    MH_CreateHook(
+        reinterpret_cast<void*>(base + 0x160d70),
+        LevelEditorLayer_createObject_H,
+        reinterpret_cast<void**>(&LevelEditorLayer_createObject)
+    );
+
     MH_EnableHook(MH_ALL_HOOKS);
 
     if(InitialiseHackpro() && HackproIsReady()) {
@@ -210,13 +256,13 @@ DWORD WINAPI mainThread(void* hModule) {
         HackproSetTextBoxPlaceholder(suffixChanceTb, uwuify("Suffix Chance"));
         HackproSetTextBoxText(suffixChanceTb, chanceToCString(suffixChance));
 
+        auto presuffixChanceTb = HackproAddTextBox(ext, extChangedPresuffixChance);
+        HackproSetTextBoxPlaceholder(presuffixChanceTb, uwuify("Presuffix Chance"));
+        HackproSetTextBoxText(presuffixChanceTb, chanceToCString(presuffixChance));
+
         auto stutterChanceTb = HackproAddTextBox(ext, extChangedStutterChance);
         HackproSetTextBoxPlaceholder(stutterChanceTb, uwuify("Stutter Chance"));
         HackproSetTextBoxText(stutterChanceTb, chanceToCString(stutterChance));
-
-        auto waveChanceTb = HackproAddTextBox(ext, extChangedWaveChance);
-        HackproSetTextBoxPlaceholder(waveChanceTb, uwuify("Wave Chance"));
-        HackproSetTextBoxText(waveChanceTb, chanceToCString(waveChance));
 
         auto periodToExclamationChanceTb = HackproAddTextBox(ext, extChangedPeriodToExclamationChance);
         HackproSetTextBoxPlaceholder(periodToExclamationChanceTb, uwuify("Period To Exclamation Chance"));
@@ -230,29 +276,6 @@ DWORD WINAPI mainThread(void* hModule) {
         HackproSetCheckbox(enabledCb, enabled);
 
         HackproCommitExt(ext);
-
-        /*void* ext = HackproInitialiseExt("uwuifier");
-
-        auto suffixChanceTb = HackproAddTextBox(ext, extChangedSuffixChance);
-        HackproSetTextBoxPlaceholder(suffixChanceTb, "Suffix Chance");
-        ////HackproSetTextBoxText(suffixChanceTb, chanceToCString(suffixChance));
-
-        auto stutterChanceTb = HackproAddTextBox(ext, extChangedStutterChance);
-        HackproSetTextBoxPlaceholder(stutterChanceTb, "Stutter Chance");
-        ////HackproSetTextBoxText(stutterChanceTb, chanceToCString(stutterChance));
-
-        auto waveChanceTb = HackproAddTextBox(ext, extChangedWaveChance);
-        HackproSetTextBoxPlaceholder(waveChanceTb, "Wave Chance");
-        ////HackproSetTextBoxText(waveChanceTb, chanceToCString(waveChance));
-
-        auto periodToExclamationChanceTb = HackproAddTextBox(ext, extChangedPeriodToExclamationChance);
-        HackproSetTextBoxPlaceholder(periodToExclamationChanceTb, "Period To Exclamation Chance");
-        ////HackproSetTextBoxText(periodToExclamationChanceTb, chanceToCString(periodToExclamationChance));
-
-        HackproAddCheckbox(ext, "Enabled In Levels", extEnabledInLevelsCallback, extDisabledInLevelsCallback);
-        HackproAddCheckbox(ext, "Enabled", extEnabledCallback, extDisabledCallback);
-
-        HackproCommitExt(ext);*/
     }
 
     return 0;
