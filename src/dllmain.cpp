@@ -2,7 +2,7 @@
 #include <random>
 #include <algorithm>
 #include <fstream>
-#include "hackpro_ext.h"
+#include "extensions2.h"
 
 bool enabled = true;
 bool enabledInLevels = false;
@@ -205,17 +205,14 @@ gd::GameObject* __fastcall LevelEditorLayer_createObject_H(gd::LevelEditorLayer*
     return ret;
 }
 
-void __stdcall extEnabledCallback(void* cb) { enabled = true; }
-void __stdcall extDisabledCallback(void* cb) { enabled = false; }
-
-void __stdcall extEnabledInLevelsCallback(void* cb) { enabledInLevels = true; }
-void __stdcall extDisabledInLevelsCallback(void* cb) { enabledInLevels = false; }
+void MH_CALL extToggledEnabledCallback(MegaHackExt::CheckBox* self, bool toggled) { enabled = toggled; }
+void MH_CALL extToggledEnabledInLevelsCallback(MegaHackExt::CheckBox* self, bool toggled) { enabledInLevels = toggled; }
 
 // percents
-void __stdcall extChangedPeriodToExclamationChance(void* tb) { periodToExclamationChance = cstringToChance(HackproGetTextBoxText(tb)); }
-void __stdcall extChangedStutterChance(void* tb) { stutterChance = cstringToChance(HackproGetTextBoxText(tb)); }
-void __stdcall extChangedPresuffixChance(void* tb) { presuffixChance = cstringToChance(HackproGetTextBoxText(tb)); }
-void __stdcall extChangedSuffixChance(void* tb) { suffixChance = cstringToChance(HackproGetTextBoxText(tb)); }
+void MH_CALL extChangedPeriodToExclamationChance(MegaHackExt::Spinner* self, double value) { periodToExclamationChance = value * 100; }
+void MH_CALL extChangedStutterChance(MegaHackExt::Spinner* self, double value) { stutterChance = value * 100; }
+void MH_CALL extChangedPresuffixChance(MegaHackExt::Spinner* self, double value) { presuffixChance = value * 100; }
+void MH_CALL extChangedSuffixChance(MegaHackExt::Spinner* self, double value) { suffixChance = value * 100; }
 
 DWORD WINAPI mainThread(void* hModule) {
     MH_Initialize();
@@ -249,34 +246,47 @@ DWORD WINAPI mainThread(void* hModule) {
 
     MH_EnableHook(MH_ALL_HOOKS);
 
-    if(InitialiseHackpro() && HackproIsReady()) {
-        void* ext = HackproInitialiseExt(uwuify("uwuifier"));
+    auto ext = MegaHackExt::Window::Create(uwuify("uwuifier"));
 
-        auto suffixChanceTb = HackproAddTextBox(ext, extChangedSuffixChance);
-        HackproSetTextBoxPlaceholder(suffixChanceTb, uwuify("Suffix Chance"));
-        HackproSetTextBoxText(suffixChanceTb, chanceToCString(suffixChance));
+    auto suffixChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    suffixChanceUi->setCallback(extChangedSuffixChance);
+    suffixChanceUi->set(suffixChance / 100.0);
+    ext->add(suffixChanceUi);
+    auto suffixChanceLabel = MegaHackExt::Label::Create(uwuify("Suffix Chance:"));
+    ext->add(suffixChanceLabel);
 
-        auto presuffixChanceTb = HackproAddTextBox(ext, extChangedPresuffixChance);
-        HackproSetTextBoxPlaceholder(presuffixChanceTb, uwuify("Presuffix Chance"));
-        HackproSetTextBoxText(presuffixChanceTb, chanceToCString(presuffixChance));
+    auto presuffixChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    presuffixChanceUi->setCallback(extChangedPresuffixChance);
+    presuffixChanceUi->set(presuffixChance / 100.0);
+    ext->add(presuffixChanceUi);
+    auto presuffixChanceLabel = MegaHackExt::Label::Create(uwuify("Presuffix Chance:"));
+    ext->add(presuffixChanceLabel);
 
-        auto stutterChanceTb = HackproAddTextBox(ext, extChangedStutterChance);
-        HackproSetTextBoxPlaceholder(stutterChanceTb, uwuify("Stutter Chance"));
-        HackproSetTextBoxText(stutterChanceTb, chanceToCString(stutterChance));
+    auto stutterChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    stutterChanceUi->setCallback(extChangedStutterChance);
+    stutterChanceUi->set(stutterChance / 100.0);
+    ext->add(stutterChanceUi);
+    auto stutterChanceLabel = MegaHackExt::Label::Create(uwuify("Stutter Chance:"));
+    ext->add(stutterChanceLabel);
 
-        auto periodToExclamationChanceTb = HackproAddTextBox(ext, extChangedPeriodToExclamationChance);
-        HackproSetTextBoxPlaceholder(periodToExclamationChanceTb, uwuify("Period To Exclamation Chance"));
-        HackproSetTextBoxText(periodToExclamationChanceTb, chanceToCString(periodToExclamationChance));
+    auto periodToExclamationChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    periodToExclamationChanceUi->setCallback(extChangedPeriodToExclamationChance);
+    periodToExclamationChanceUi->set(periodToExclamationChance / 100.0);
+    ext->add(periodToExclamationChanceUi);
+    auto periodToExclamationChanceLabel = MegaHackExt::Label::Create(uwuify("Period To Exclamation Chance:"));
+    ext->add(periodToExclamationChanceLabel);
 
-        // for some reason if i uwuify this, it doesn't work
-        auto enabledInLevelsCb = HackproAddCheckbox(ext, "Enabled In Levels", extEnabledInLevelsCallback, extDisabledInLevelsCallback);
-        HackproSetCheckbox(enabledInLevelsCb, enabledInLevels);
+    auto enabledInLevelsUi = MegaHackExt::CheckBox::Create(uwuify("In Levels"));
+    enabledInLevelsUi->setCallback(extToggledEnabledInLevelsCallback);
+    enabledInLevelsUi->set(enabledInLevels);
 
-        auto enabledCb = HackproAddCheckbox(ext, uwuify("Enabled"), extEnabledCallback, extDisabledCallback);
-        HackproSetCheckbox(enabledCb, enabled);
+    auto enabledUi = MegaHackExt::CheckBox::Create(uwuify("Enabled"));
+    enabledUi->setCallback(extToggledEnabledCallback);
+    enabledUi->set(enabled);
 
-        HackproCommitExt(ext);
-    }
+    ext->add(MegaHackExt::HorizontalLayout::Create(enabledUi, enabledInLevelsUi));
+
+    MegaHackExt::Client::commit(ext);
 
     return 0;
 }
