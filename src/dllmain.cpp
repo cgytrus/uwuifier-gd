@@ -84,14 +84,6 @@ inline void hash_combine(std::size_t& seed, const T& v) {
 }
 
 inline bool getChance(int chance) { return std::rand() % 10000 < chance; }
-inline const char* chanceToCString(int chance) {
-    char array[7] = { '\0', '\0', '\0', '\0', '\0', '\0', '\0' };
-    sprintf_s(array, "%.2f", chance / 100.0);
-    return (const char*)&array[0];
-}
-inline int cstringToChance(const char* cstring) {
-    return (int)(atof(cstring) * 100.0);
-}
 
 std::string newString = std::string();
 const char* uwuify(const char* originalString) {
@@ -170,7 +162,7 @@ void (__thiscall* CCLabelBMFont_setString)(CCLabelBMFont* self, const char *newS
 void __fastcall CCLabelBMFont_setString_H(CCLabelBMFont* self, void*, const char *newString, bool needUpdateLabel) {
     auto parent = self->getParent();
     // same as comment on the hook below
-    if(!enabled || !enabledInLevels && (ignoreUwuifying || parent != nullptr && /*parent->getObjType() == 13*/ typeid(*parent) == typeid(gd::GameObject))) {
+    if(!enabled || !enabledInLevels && (ignoreUwuifying || parent != nullptr && typeid(*parent) == typeid(gd::GameObject))) {
         CCLabelBMFont_setString(self, newString, needUpdateLabel);
         return;
     }
