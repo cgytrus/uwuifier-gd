@@ -3,159 +3,10 @@
 #include <algorithm>
 #include <fstream>
 #include "extensions2.h"
+#include "uwuifier.h"
 
 bool enabled = true;
 bool enabledInLevels = false;
-// multiplied by 10000
-unsigned int periodToExclamationChance = 2000;
-int stutterChance = 1000;
-int presuffixChance = 1000;
-int suffixChance = 2000;
-
-static std::unordered_map<char, char> const SINGLE_REPLACE = {
-    { 'l', 'w' },
-    { 'r', 'w' }
-};
-
-static std::unordered_map<std::string, std::string> const REPLACE = {
-    { " you ", " uwu " },
-    { " no ", " nu " },
-    { " na", " nya" },
-    { " ne", " nye" },
-    { " ni", " nyi" },
-    { " no", " nyo" },
-    { " nu", " nyu" },
-    { "te", "twe" },
-    { "da", "dwa" },
-    { "ke", "kwe" },
-    { "qe", "qwe" },
-    { "je", "jwe" },
-    { "ne", "nwe" },
-    { "na", "nwa" },
-    { "si", "swi" },
-    { "so", "swo" },
-    { "mi", "mwi" },
-    { "co", "cwo" },
-    { "mo", "mwo" },
-    { "ba", "bwa" },
-    { "pow", "paw" }
-};
-
-static std::vector<std::string> const PRESUFFIXES = {
-    "~"
-};
-
-static std::vector<std::string> const SUFFIXES = {
-    " :D",
-    " xD",
-    " :P",
-    " ;3",
-    " <{^v^}>",
-    " ^-^",
-    " x3",
-    " x3",
-    " rawr",
-    " rawr x3",
-    " owo",
-    " uwu",
-    " -.-",
-    " >w<",
-    " :3",
-    " XD",
-    " nyaa~~",
-    " >_<",
-    " :flushed:",
-    " ^^",
-    " ^^;;"
-};
-
-void replaceAll(std::string& inout, std::string_view what, std::string_view with) {
-    std::size_t count{};
-    for(std::string::size_type pos{}; inout.npos != (pos = inout.find(what.data(), pos, what.length())); pos += with.length(), ++count) {
-        inout.replace(pos, what.length(), with.data(), with.length());
-    }
-}
-
-std::random_device::result_type rd = std::random_device()();
-template <class T>
-inline void hash_combine(std::size_t& seed, const T& v) {
-    std::hash<T> hasher;
-    seed ^= hasher(v) + rd + (seed << 6) + (seed >> 2);
-}
-
-inline bool getChance(int chance) { return std::rand() % 10000 < chance; }
-
-std::string newString = std::string();
-const char* uwuify(const char* originalString) {
-    size_t origLength = strlen(originalString);
-    bool isEmpty = true;
-    for(size_t i = 0; i < origLength; i++) {
-        if(!isspace(originalString[i])) isEmpty = false;
-    }
-    if(isEmpty) return originalString;
-
-    newString.clear();
-
-    // copy and replace . with !
-    newString.append(" ");
-    for(size_t i = 0; i < origLength; i++) {
-        char prevChar = i == 0 ? ' ' : tolower(originalString[i - 1]);
-        char currChar = tolower(originalString[i]);
-        char nextChar = i == origLength - 1 ? ' ' : tolower(originalString[i + 1]);
-
-        if(currChar == '.' && nextChar == ' ' && getChance(periodToExclamationChance)) currChar = '!';
-        newString += currChar;
-    }
-    newString.append(" ");
-
-    // replacements
-    for(size_t i = 1; i < newString.size() - 1; i++) {
-        char prevChar = newString[i - 1];
-        char currChar = newString[i];
-        char nextChar = newString[i + 1];
-
-        if(!isalpha(prevChar) && !isalpha(nextChar) || !SINGLE_REPLACE.contains(currChar)) continue;
-        newString[i] = SINGLE_REPLACE.at(currChar);
-    }
-    for(auto elem : REPLACE) {
-        replaceAll(newString, elem.first, elem.second);
-    }
-
-    // stutter and suffixes
-    for(size_t i = 1; i < newString.size(); i++) {
-        bool end = i == newString.size() - 1;
-
-        char prevChar = newString[i - 1];
-        char currChar = newString[i];
-        char nextChar = end ? ' ' : newString[i + 1];
-
-        bool stutter = prevChar == ' ' && isalpha(currChar) && getChance(stutterChance);
-        if(stutter) {
-            newString.insert(i, 1, '-');
-            newString.insert(i, 1, currChar);
-        }
-
-        int suffixLength = 0;
-        if(currChar == ' ' && (prevChar == '.' || prevChar == '!' || prevChar == ',' || nextChar == '-' || end)) {
-            if(getChance(suffixChance) && (!end || isalnum(prevChar))) {
-                auto suffix = SUFFIXES[std::rand() % SUFFIXES.size()];
-                newString.insert(i, suffix);
-                suffixLength += suffix.size();
-            }
-            if(getChance(presuffixChance)) {
-                auto presuffix = PRESUFFIXES[std::rand() % PRESUFFIXES.size()];
-                newString.insert(prevChar != ',' || end ? i : i - 1, presuffix);
-                suffixLength += presuffix.size();
-            }
-        }
-
-        if(stutter) i += 2;
-        i += suffixLength;
-    }
-
-    newString = newString.substr(1, newString.size() - 2);
-    return newString.c_str();
-}
 
 bool ignoreUwuifying = false;
 void (__thiscall* CCLabelBMFont_setString)(CCLabelBMFont* self, const char *newString, bool needUpdateLabel);
@@ -167,10 +18,8 @@ void __fastcall CCLabelBMFont_setString_H(CCLabelBMFont* self, void*, const char
         return;
     }
 
-    auto seed = (unsigned int)rd;
-    hash_combine(seed, self);
-    std::srand(seed);
-    CCLabelBMFont_setString(self, uwuify(newString), needUpdateLabel);
+    uwuifier::seedFrom(self);
+    CCLabelBMFont_setString(self, uwuifier::uwuify(newString).c_str(), needUpdateLabel);
 }
 
 // don't uwuify the levels themselves, or they may break xd
@@ -201,10 +50,12 @@ void MH_CALL extToggledEnabledCallback(MegaHackExt::CheckBox* self, bool toggled
 void MH_CALL extToggledEnabledInLevelsCallback(MegaHackExt::CheckBox* self, bool toggled) { enabledInLevels = toggled; }
 
 // percents
-void MH_CALL extChangedPeriodToExclamationChance(MegaHackExt::Spinner* self, double value) { periodToExclamationChance = value * 100; }
-void MH_CALL extChangedStutterChance(MegaHackExt::Spinner* self, double value) { stutterChance = value * 100; }
-void MH_CALL extChangedPresuffixChance(MegaHackExt::Spinner* self, double value) { presuffixChance = value * 100; }
-void MH_CALL extChangedSuffixChance(MegaHackExt::Spinner* self, double value) { suffixChance = value * 100; }
+void MH_CALL extChangedPeriodToExclamationChance(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().periodToExclamationChance = value / 100; }
+void MH_CALL extChangedStutterChance(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().stutterChance = value / 100; }
+void MH_CALL extChangedPresuffixChance(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().presuffixChance = value / 100; }
+void MH_CALL extChangedSuffixChance(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().suffixChance = value / 100; }
+void MH_CALL extChangedDuplicateCharactersChance(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().duplicateCharactersChance = value / 100; }
+void MH_CALL extChangedDuplicateCharactersAmount(MegaHackExt::Spinner* self, double value) { uwuifier::getSettings().duplicateCharactersAmount = (int)value; }
 
 DWORD WINAPI mainThread(void* hModule) {
     MH_Initialize();
@@ -238,41 +89,55 @@ DWORD WINAPI mainThread(void* hModule) {
 
     MH_EnableHook(MH_ALL_HOOKS);
 
-    auto ext = MegaHackExt::Window::Create(uwuify("uwuifier"));
+    auto ext = MegaHackExt::Window::Create(uwuifier::uwuify("uwuifier").c_str());
 
-    auto suffixChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    auto duplicateCharactersAmountUi = MegaHackExt::Spinner::Create("", "");
+    duplicateCharactersAmountUi->setCallback(extChangedDuplicateCharactersAmount);
+    duplicateCharactersAmountUi->set(uwuifier::getSettings().duplicateCharactersAmount);
+    ext->add(duplicateCharactersAmountUi);
+    auto duplicateCharactersAmountLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Duplicate Characters Amount:").c_str());
+    ext->add(duplicateCharactersAmountLabel);
+
+    auto duplicateCharactersChanceUi = MegaHackExt::Spinner::Create("", uwuifier::uwuify("%").c_str());
+    duplicateCharactersChanceUi->setCallback(extChangedDuplicateCharactersChance);
+    duplicateCharactersChanceUi->set(uwuifier::getSettings().duplicateCharactersChance * 100.0);
+    ext->add(duplicateCharactersChanceUi);
+    auto duplicateCharactersChanceLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Duplicate Characters Chance:").c_str());
+    ext->add(duplicateCharactersChanceLabel);
+
+    auto suffixChanceUi = MegaHackExt::Spinner::Create("", uwuifier::uwuify("%").c_str());
     suffixChanceUi->setCallback(extChangedSuffixChance);
-    suffixChanceUi->set(suffixChance / 100.0);
+    suffixChanceUi->set(uwuifier::getSettings().suffixChance * 100.0);
     ext->add(suffixChanceUi);
-    auto suffixChanceLabel = MegaHackExt::Label::Create(uwuify("Suffix Chance:"));
+    auto suffixChanceLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Suffix Chance:").c_str());
     ext->add(suffixChanceLabel);
 
-    auto presuffixChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    auto presuffixChanceUi = MegaHackExt::Spinner::Create("", uwuifier::uwuify("%").c_str());
     presuffixChanceUi->setCallback(extChangedPresuffixChance);
-    presuffixChanceUi->set(presuffixChance / 100.0);
+    presuffixChanceUi->set(uwuifier::getSettings().presuffixChance * 100.0);
     ext->add(presuffixChanceUi);
-    auto presuffixChanceLabel = MegaHackExt::Label::Create(uwuify("Presuffix Chance:"));
+    auto presuffixChanceLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Presuffix Chance:").c_str());
     ext->add(presuffixChanceLabel);
 
-    auto stutterChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    auto stutterChanceUi = MegaHackExt::Spinner::Create("", uwuifier::uwuify("%").c_str());
     stutterChanceUi->setCallback(extChangedStutterChance);
-    stutterChanceUi->set(stutterChance / 100.0);
+    stutterChanceUi->set(uwuifier::getSettings().stutterChance * 100.0);
     ext->add(stutterChanceUi);
-    auto stutterChanceLabel = MegaHackExt::Label::Create(uwuify("Stutter Chance:"));
+    auto stutterChanceLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Stutter Chance:").c_str());
     ext->add(stutterChanceLabel);
 
-    auto periodToExclamationChanceUi = MegaHackExt::Spinner::Create("", uwuify("%"));
+    auto periodToExclamationChanceUi = MegaHackExt::Spinner::Create("", uwuifier::uwuify("%").c_str());
     periodToExclamationChanceUi->setCallback(extChangedPeriodToExclamationChance);
-    periodToExclamationChanceUi->set(periodToExclamationChance / 100.0);
+    periodToExclamationChanceUi->set(uwuifier::getSettings().periodToExclamationChance * 100.0);
     ext->add(periodToExclamationChanceUi);
-    auto periodToExclamationChanceLabel = MegaHackExt::Label::Create(uwuify("Period To Exclamation Chance:"));
+    auto periodToExclamationChanceLabel = MegaHackExt::Label::Create(uwuifier::uwuify("Period To Exclamation Chance:").c_str());
     ext->add(periodToExclamationChanceLabel);
 
-    auto enabledInLevelsUi = MegaHackExt::CheckBox::Create(uwuify("In Levels"));
+    auto enabledInLevelsUi = MegaHackExt::CheckBox::Create(uwuifier::uwuify("In Levels").c_str());
     enabledInLevelsUi->setCallback(extToggledEnabledInLevelsCallback);
     enabledInLevelsUi->set(enabledInLevels);
 
-    auto enabledUi = MegaHackExt::CheckBox::Create(uwuify("Enabled"));
+    auto enabledUi = MegaHackExt::CheckBox::Create(uwuifier::uwuify("Enabled").c_str());
     enabledUi->setCallback(extToggledEnabledCallback);
     enabledUi->set(enabled);
 
@@ -284,7 +149,7 @@ DWORD WINAPI mainThread(void* hModule) {
 }
 
 BOOL APIENTRY DllMain(HMODULE handle, DWORD reason, LPVOID reserved) {
-    if (reason == DLL_PROCESS_ATTACH) {
+    if(reason == DLL_PROCESS_ATTACH) {
         CreateThread(0, 0x100, mainThread, handle, 0, 0);
     }
     return TRUE;

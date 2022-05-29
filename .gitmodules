@@ -7,3 +7,7 @@
 [submodule "libraries/gd.h"]
 	path = libraries/gd.h
 	url = https://github.com/HJFod/gd.h.git
+[submodule "libraries/boost/regex"]
+	path = libraries/boost/regex
+	url = https://github.com/boostorg/regex
+	branch = master

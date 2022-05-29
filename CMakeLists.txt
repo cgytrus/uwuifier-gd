@@ -11,12 +11,15 @@ if(NOT WINDOWS_HEADER)
   message(FATAL_ERROR "Can't find windows.h!")
 endif()
 
+set(BOOST_REGEX_STANDALONE ON)
+
 file(GLOB_RECURSE SOURCE_FILES src/*.cpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   libraries/hackpro
   libraries/minhook/include
+  libraries/boost/regex/include
   libraries/gd.h/include
   libraries/gd.h
   libraries/cocos-headers/
@@ -31,6 +34,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 add_subdirectory(libraries/minhook)
 target_link_libraries(${PROJECT_NAME} minhook)
+
+add_subdirectory(libraries/boost/regex)
+target_link_libraries(${PROJECT_NAME} boost_regex)
 
 target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/libraries/hackpro/hackpro.lib)
 
