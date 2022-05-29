@@ -3,7 +3,7 @@ A Geometry Dash mod that makes your game very uwu
 
 partially based on [Daniel-Liu-c0deb0t/uwu](https://github.com/Daniel-Liu-c0deb0t/uwu), [cos8oih/owoifiew](https://github.com/cos8oih/owoifiew), [@Black_is_Back/OWOifier](https://replit.com/@Black_is_Back/OWOifier) and me
 
-requires mhv6 to change settings
+requires mhv7 to change settings
 
 ## Features
 - uwu

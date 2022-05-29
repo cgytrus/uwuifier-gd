@@ -5,15 +5,22 @@
 #include "extensions2.h"
 #include "uwuifier.h"
 
+static inline bool mhLoaded() { return GetModuleHandle(TEXT("hackpro.dll")); }
+
 bool enabled = true;
 bool enabledInLevels = false;
 
 bool ignoreUwuifying = false;
 void (__thiscall* CCLabelBMFont_setString)(CCLabelBMFont* self, const char *newString, bool needUpdateLabel);
-void __fastcall CCLabelBMFont_setString_H(CCLabelBMFont* self, void*, const char *newString, bool needUpdateLabel) {
+void __fastcall CCLabelBMFont_setCString_H(CCLabelBMFont* self, void*, const char *newString, bool needUpdateLabel) {
     auto parent = self->getParent();
-    // same as comment on the hook below
-    if(!enabled || !enabledInLevels && (ignoreUwuifying || parent != nullptr && typeid(*parent) == typeid(gd::GameObject))) {
+    // best if statement i've ever written
+    if(!enabled ||
+        // if we have megahack installed, don't change the "Progress Bar" text,
+        // let mh change it to "Bar" first
+        mhLoaded() && strcmp(newString, "Progress Bar") == 0 ||
+        // don't uwuify in levels
+        !enabledInLevels && (ignoreUwuifying || parent != nullptr && typeid(*parent) == typeid(gd::GameObject))) {
         CCLabelBMFont_setString(self, newString, needUpdateLabel);
         return;
     }
@@ -65,7 +72,7 @@ DWORD WINAPI mainThread(void* hModule) {
 
     MH_CreateHook(
         reinterpret_cast<void*>(cocos2dBase + 0x9fb60),
-        CCLabelBMFont_setString_H,
+        CCLabelBMFont_setCString_H,
         reinterpret_cast<void**>(&CCLabelBMFont_setString)
     );
 
@@ -88,6 +95,9 @@ DWORD WINAPI mainThread(void* hModule) {
     );
 
     MH_EnableHook(MH_ALL_HOOKS);
+
+    if(!mhLoaded())
+        return 0;
 
     auto ext = MegaHackExt::Window::Create(uwuifier::uwuify("uwuifier").c_str());
 

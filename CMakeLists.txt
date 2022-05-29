@@ -39,6 +39,7 @@ add_subdirectory(libraries/boost/regex)
 target_link_libraries(${PROJECT_NAME} boost_regex)
 
 target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/libraries/hackpro/hackpro.lib)
+target_link_options(${PROJECT_NAME} PRIVATE "/DELAYLOAD:hackpro.dll")
 
 target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/libraries/cocos-headers/cocos2dx/libcocos2d.lib)
 # not needed most of the time
