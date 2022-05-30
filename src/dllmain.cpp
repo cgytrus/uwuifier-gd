@@ -18,7 +18,7 @@ void __fastcall CCLabelBMFont_setCString_H(CCLabelBMFont* self, void*, const cha
     if(!enabled ||
         // if we have megahack installed, don't change the "Progress Bar" text,
         // let mh change it to "Bar" first
-        mhLoaded() && strcmp(newString, "Progress Bar") == 0 ||
+        parent == nullptr && mhLoaded() && strcmp(newString, "Progress Bar") == 0 ||
         // don't uwuify in levels
         !enabledInLevels && (ignoreUwuifying || parent != nullptr && typeid(*parent) == typeid(gd::GameObject))) {
         CCLabelBMFont_setString(self, newString, needUpdateLabel);

@@ -17,6 +17,8 @@ namespace uwuifier {
     inline bool getChance(double chance) { return std::generate_canonical<double, 10>(gen) < chance; }
 
     bool isCaps(const std::string& text) {
+        if(text.size() <= 1)
+            return false;
         for(auto character : text)
             if(islower(character))
                 return false;
